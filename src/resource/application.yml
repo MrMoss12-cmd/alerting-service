@@ -1,0 +1,68 @@
+# application.yml
+
+# Entornos soportados: desarrollo, staging, producción
+profiles:
+  active: development
+
+# Parámetros generales del servicio
+server:
+  port: 8080
+  host: "0.0.0.0"
+  shutdown_timeout_seconds: 30
+  request_timeout_seconds: 15
+
+# Nivel de log: trace, debug, info, warn, error
+logging:
+  level: info
+  format: json
+  output: stdout
+  enable_correlation_id: true
+
+# Feature toggles para activar o desactivar funcionalidades en caliente
+features:
+  enable_alert_deduplication: true
+  enable_retry_mechanism: true
+  enable_webhook_support: true
+  enable_metrics_collection: true
+  enable_audit_logging: true
+
+# Políticas de retención de datos
+retention_policies:
+  alerts:
+    default_days: 90
+    tenants:
+      tenant_a: 180
+      tenant_b: 60
+
+# Configuraciones para métricas y auditoría
+observability:
+  metrics_enabled: true
+  tracing_enabled: true
+  audit_logging_enabled: true
+  metrics_export_interval_seconds: 30
+  tracing_sampling_rate: 0.1 # 10%
+
+# Hot-reload y monitoreo para configuración dinámica
+reload:
+  enabled: true
+  check_interval_seconds: 60
+  config_sources:
+    - file: resources/application.yml
+    - env: ENV_CONFIG_OVERRIDE
+
+# Configuración multi-tenant
+multi_tenant:
+  enabled: true
+  default_tenant: "default"
+  tenant_isolation: strict
+  allowed_tenants:
+    - tenant_a
+    - tenant_b
+    - default
+
+# Referencias a configuraciones específicas
+config_paths:
+  kafka: resources/kafka-config.yml
+  smtp: resources/smtp-config.yml
+  tls: resources/tls-config.yml
+  notifier_plugins: resources/notifier-config.yml

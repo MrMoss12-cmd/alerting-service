@@ -1,0 +1,107 @@
+# notifier-config.yml
+
+notifiers:
+  email:
+    name: "EmailNotifier"
+    version: "1.3.2"
+    status: "active"                  # active, maintenance, disabled
+    multi_tenant: true
+    credentials:
+      smtp_host: "smtp.example.com"
+      smtp_port: 587
+      username: "user@example.com"
+      password_encrypted: "ENC(abc123encrypted==)"
+      use_tls: true
+    limits:
+      max_emails_per_minute: 1000
+      max_retries: 5
+    templates:
+      default: "default_email_template.html"
+      alert: "alert_email_template.html"
+    integrity:
+      hash: "sha256:abcdef1234567890"
+      signature: "base64sig=="
+    audit:
+      last_modified_by: "admin@example.com"
+      last_modified_at: "2025-08-12T10:30:00Z"
+    hot_reload_enabled: true
+    version_policy:
+      allow_rollback: true
+      compatible_versions:
+        - "1.x"
+        - "2.0"
+
+  telegram:
+    name: "TelegramNotifier"
+    version: "2.1.0"
+    status: "active"
+    multi_tenant: true
+    credentials:
+      bot_token_encrypted: "ENC(tokenencrypted==)"
+    limits:
+      max_messages_per_minute: 600
+      max_retries: 3
+    integrity:
+      hash: "sha256:0987fedcba654321"
+      signature: "base64sig2=="
+    audit:
+      last_modified_by: "ops_team@example.com"
+      last_modified_at: "2025-08-10T14:00:00Z"
+    hot_reload_enabled: true
+    version_policy:
+      allow_rollback: false
+      compatible_versions:
+        - "2.x"
+
+  sms:
+    name: "SmsNotifier"
+    version: "1.0.0"
+    status: "maintenance"
+    multi_tenant: true
+    credentials:
+      provider: "Twilio"
+      account_sid: "ACXXXXXXXXXXXXXXXXXXXXXX"
+      auth_token_encrypted: "ENC(authencrypted==)"
+    limits:
+      max_sms_per_minute: 300
+      max_retries: 4
+    integrity:
+      hash: "sha256:ffeeddaa33445566"
+      signature: "base64sig3=="
+    audit:
+      last_modified_by: "security@example.com"
+      last_modified_at: "2025-07-30T09:45:00Z"
+    hot_reload_enabled: false
+    version_policy:
+      allow_rollback: true
+      compatible_versions:
+        - "1.x"
+
+tenants:
+  tenant_a:
+    enabled_notifiers:
+      - email
+      - telegram
+    notifier_configs:
+      email:
+        smtp_host: "smtp.tenant_a.com"
+        smtp_port: 587
+        username: "tenant_a_user@tenant_a.com"
+        password_encrypted: "ENC(tenantAencrypted==)"
+        use_tls: true
+        limits:
+          max_emails_per_minute: 500
+          max_retries: 3
+      telegram:
+        bot_token_encrypted: "ENC(tenantAToken==)"
+  tenant_b:
+    enabled_notifiers:
+      - sms
+    notifier_configs:
+      sms:
+        provider: "Nexmo"
+        account_sid: "tenantB_sid"
+        auth_token_encrypted: "ENC(tenantBauth==)"
+        limits:
+          max_sms_per_minute: 150
+          max_retries: 2

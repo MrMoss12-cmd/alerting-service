@@ -1,0 +1,77 @@
+# kafka-config.yml
+
+kafka:
+  # Brokers Kafka separados por coma o lista
+  brokers:
+    - kafka1.example.com:9093
+    - kafka2.example.com:9093
+    - kafka3.example.com:9093
+
+  # Configuración multi-tenant: cada tenant puede tener sus propios topics y grupos
+  tenants:
+    tenant_a:
+      consumer_group: "tenant_a_consumer_group"
+      topics:
+        - "tenant_a_alerts"
+        - "tenant_a_metrics"
+      producer_topic: "tenant_a_notifications"
+    tenant_b:
+      consumer_group: "tenant_b_consumer_group"
+      topics:
+        - "tenant_b_alerts"
+      producer_topic: "tenant_b_notifications"
+    default:
+      consumer_group: "default_consumer_group"
+      topics:
+        - "default_alerts"
+      producer_topic: "default_notifications"
+
+  # Configuración general de consumidor
+  consumer:
+    enable_auto_commit: false
+    auto_offset_reset: "earliest" # earliest | latest | none
+    max_poll_records: 500
+    session_timeout_ms: 10000
+    heartbeat_interval_ms: 3000
+    max_partition_fetch_bytes: 1048576
+
+  # Configuración general de productor
+  producer:
+    acks: "all" # all | leader | none
+    retries: 5
+    retry_backoff_ms: 1000
+    batch_size: 16384
+    linger_ms: 10
+    compression_type: "lz4" # none | gzip | snappy | lz4 | zstd
+
+  # Seguridad
+  security:
+    protocol: "SASL_SSL" # PLAINTEXT | SSL | SASL_PLAINTEXT | SASL_SSL
+    sasl_mechanism: "SCRAM-SHA-512" # PLAIN | SCRAM-SHA-256 | SCRAM-SHA-512 | OAUTHBEARER
+    sasl_username: "kafka_user"
+    sasl_password: "super_secret_password"
+    tls:
+      ca_cert_path: "/etc/kafka/certs/ca.pem"
+      client_cert_path: "/etc/kafka/certs/client.pem"
+      client_key_path: "/etc/kafka/certs/client.key"
+      enable_mutual_tls: true
+      insecure_skip_verify: false
+
+  # Política de reintentos y backoff para conexiones y envíos
+  retry_policy:
+    max_retries: 10
+    base_backoff_ms: 500
+    max_backoff_ms: 30000
+    backoff_multiplier: 2.0
+    jitter_enabled: true
+
+  # Monitoreo y métricas
+  metrics:
+    enable: true
+    report_interval_seconds: 30
+    kafka_client_id: "alerting-service"
+
+  # Hot-reload
+  hot_reload:
+    enabled: true
+    poll_interval_seconds: 60

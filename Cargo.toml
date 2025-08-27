@@ -1,0 +1,88 @@
+[package]
+name = "alerting-service"
+version = "0.1.0"
+edition = "2021"
+authors = ["Elías Higuera <tucorreo@example.com>"]
+license = "Apache-2.0"
+description = "Microservicio de gestión y notificación de alertas con soporte HTTP, gRPC, Kafka y OpenTelemetry."
+repository = "https://github.com/tuorg/alerting-service"
+readme = "README.md"
+
+[dependencies]
+# Tokio runtime para concurrencia y paralelismo
+tokio = { version = "1.39", features = ["full"] }
+
+# Servidor HTTP REST
+axum = "0.7"
+
+# gRPC con Tonic
+tonic = { version = "0.11", features = ["tls", "transport"] }
+prost = "0.12"
+
+# Manejo de certificados TLS/mTLS
+rustls = "0.23"
+tokio-rustls = "0.24"
+
+# Kafka
+rdkafka = { version = "0.36", features = ["tokio", "ssl"] }
+
+# Serialización/Deserialización
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+# Configuración
+config = "0.14"
+
+# Logging y tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+opentelemetry = "0.22"
+tracing-opentelemetry = "0.23"
+
+# Seguridad y autenticación
+jsonwebtoken = "9.3"
+sha2 = "0.10"
+
+# Utilidades
+anyhow = "1.0"
+thiserror = "1.0"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Hot reload opcional
+notify = "6.1"
+
+[build-dependencies]
+tonic-build = "0.11"
+
+[features]
+# Características condicionales
+default = ["http", "grpc", "kafka", "otel"]
+http = []
+grpc = []
+kafka = []
+otel = []
+
+[profile.dev]
+opt-level = 0
+debug = true
+overflow-checks = true
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[workspace]
+members = [
+    # Si el proyecto crece a múltiples crates, se agregan aquí
+]
+
+[package.metadata.clippy]
+warn = ["all"]
+
+[package.metadata.rustfmt]
+edition = "2021"

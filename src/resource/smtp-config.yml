@@ -1,0 +1,72 @@
+# smtp-config.yml
+
+smtp:
+  # Hosts SMTP configurables (pueden ser varios para fallback)
+  hosts:
+    - host: "smtp1.example.com"
+      port: 587
+      use_tls: true
+      skip_cert_verification: false
+    - host: "smtp2.example.com"
+      port: 465
+      use_tls: true
+      skip_cert_verification: false
+
+  # Configuración multi-tenant con credenciales y políticas independientes
+  tenants:
+    tenant_a:
+      username: "tenant_a_user"
+      password: "tenant_a_password_encrypted"
+      auth_method: "login"       # login | oauth2 | api_token
+      oauth2_token: ""           # solo si auth_method es oauth2
+      api_token: ""              # solo si auth_method es api_token
+      max_connections: 5
+      max_messages_per_minute: 100
+      retry_policy:
+        max_retries: 5
+        retry_interval_seconds: 60
+      templates:
+        default:
+          html_path: "templates/tenant_a/default_email.html"
+          text_path: "templates/tenant_a/default_email.txt"
+        alert:
+          html_path: "templates/tenant_a/alert_email.html"
+          text_path: "templates/tenant_a/alert_email.txt"
+
+    tenant_b:
+      username: "tenant_b_user"
+      password: "tenant_b_password_encrypted"
+      auth_method: "oauth2"
+      oauth2_token: "token_value_here"
+      max_connections: 3
+      max_messages_per_minute: 50
+      retry_policy:
+        max_retries: 3
+        retry_interval_seconds: 120
+      templates:
+        default:
+          html_path: "templates/tenant_b/default_email.html"
+          text_path: "templates/tenant_b/default_email.txt"
+
+  # Configuración TLS/SSL global para conexión SMTP
+  tls:
+    enable_automatic_renewal: true
+    renewal_check_interval_hours: 24
+    ca_cert_path: "/etc/ssl/certs/ca.pem"
+    client_cert_path: "/etc/ssl/certs/client.pem"
+    client_key_path: "/etc/ssl/private/client.key"
+    enforce_strict_validation: true
+
+  # Seguridad y auditoría
+  security:
+    credentials_encryption_method: "AES-256-GCM"
+    credentials_access_restriction: "role_based"
+    audit_logging_enabled: true
+    audit_log_path: "/var/log/alerting-service/smtp_audit.log"
+    audit_log_retention_days: 90
+
+  # General settings
+  connection_timeout_seconds: 10
+  send_timeout_seconds: 30
+  enable_hot_reload: true
+  hot_reload_poll_interval_seconds: 60

@@ -1,0 +1,339 @@
+// api/proto/alerting.proto
+syntax = "proto3";
+
+package alerting.v1;
+
+option java_package = "com.example.alerting.v1";
+option go_package = "github.com/example/alerting-service/api/proto;alertingpb";
+option csharp_namespace = "Example.Alerting.V1";
+
+// -----------------------------------------------------------------------------
+// Alerting API - Protobuf definitions (v1)
+// -----------------------------------------------------------------------------
+/*
+  Responsabilidad:
+  - Contratos gRPC versionados para comunicación con clientes y otros servicios.
+
+  Notas de diseño:
+  - Todos los mensajes incluyen campos de trazabilidad (correlation_id, request_id, tenant_id).
+  - Soporta llamadas unarias, server streaming y bidi streaming donde aplica.
+  - Mensajes pensados para evolución: añadir campos opcionales sin romper compatibilidad.
+  - Use metadata (gRPC headers) para transportes sensibles como autenticación/mTLS; sin
+    embargo, algunos campos se repiten en el mensaje para facilitar testing/registro.
+*/
+
+// Import common well-known types
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  INFO = 1;
+  WARNING = 2;
+  CRITICAL = 3;
+  EMERGENCY = 4;
+  // Reserve space for future levels
+}
+
+enum DeliveryStatus {
+  DELIVERY_UNKNOWN = 0;
+  PENDING = 1;
+  DELIVERED = 2;
+  FAILED = 3;
+  RETRYING = 4;
+  DROPPED = 5;
+}
+
+enum NotifierChannel {
+  CHANNEL_UNSPECIFIED = 0;
+  EMAIL = 1;
+  SMS = 2;
+  TELEGRAM = 3;
+  SLACK = 4;
+  WEBHOOK = 5;
+  PUSH = 6;
+}
+
+// Standard error codes meaningful at domain level
+enum DomainErrorCode {
+  DOMAIN_ERROR_UNSPECIFIED = 0;
+  VALIDATION_ERROR = 1;
+  DUPLICATE_EVENT = 2;
+  TENANT_POLICY_VIOLATION = 3;
+  ROUTING_ERROR = 4;
+  DELIVERY_ERROR = 5;
+  AUTHORIZATION_ERROR = 6;
+  NOT_FOUND = 7;
+  INTERNAL = 100;
+}
+
+// -----------------------------------------------------------------------------
+// Core messages
+// -----------------------------------------------------------------------------
+message TraceContext {
+  // Correlation and tracing identifiers useful for logs and distributed tracing
+  string correlation_id = 1;     // e.g. UUID per user-request flow
+  string trace_id = 2;           // optional trace id (W3C Trace Context or custom)
+  string span_id = 3;            // optional span id
+}
+
+message Alert {
+  // Identity & auditing
+  string id = 1; // UUID assigned by ingest (if empty on Create => server assigns)
+  string request_id = 2; // id for the specific request that created this alert
+  TraceContext trace = 3;
+  string tenant_id = 4;   // tenant owning this alert
+  string origin = 5;      // origin system e.g. "billing", "metrics", "infrastructure"
+
+  // Core semantics
+  Severity severity = 10;
+  string type = 11; // logical type e.g. "payment.failure", "vm.cpu.high"
+  string title = 12;
+  string message = 13;
+
+  // Structured payload/metadata (free-form JSON string or compact key:value)
+  // Use JSON string to allow extensible structured payloads without changing proto.
+  string payload_json = 20;
+
+  // Timestamps
+  google.protobuf.Timestamp created_at = 30;
+  google.protobuf.Timestamp received_at = 31; // when ingested by service
+  google.protobuf.Timestamp processed_at = 32; // when classification/routing done
+
+  // Routing & delivery hints
+  repeated NotifierChannel preferred_channels = 40;
+  map<string, string> routing_metadata = 41; // arbitrary key/values used by routing engine
+
+  // Delivery state is stored/updated as notifications proceed
+  map<string, DeliveryStatusEntry> delivery_status = 50; // key=channel_name or notifier id
+
+  // Replay flag - indicates this record is a replay of a historical alert
+  bool is_replay = 60;
+
+  // Optional TTL/expiry for retention/purge
+  google.protobuf.Duration ttl = 70;
+
+  // Version for schema evolution
+  uint32 version = 98;
+}
+
+// Per-channel delivery status entry
+message DeliveryStatusEntry {
+  DeliveryStatus status = 1;
+  uint32 attempts = 2;
+  google.protobuf.Timestamp last_attempt_at = 3;
+  string last_error = 4;
+  // optional: backoff hint in seconds for next try
+  google.protobuf.Duration next_backoff = 5;
+}
+
+// -----------------------------------------------------------------------------
+// Requests & Responses
+// -----------------------------------------------------------------------------
+
+// Create an alert (ingest). Returns the created Alert with assigned id & timestamps.
+message CreateAlertRequest {
+  TraceContext trace = 1;
+  string tenant_id = 2;
+  Alert alert = 3; // client may omit id/created_at; server will populate required fields
+  // Safety: may include a signature or token in metadata; repeated here for auditing
+  string signature = 10; // optional signature to verify origin authenticity
+}
+
+message CreateAlertResponse {
+  Alert alert = 1;
+  DomainError domain_error = 2; // present if creation had domain-level warnings/errors
+}
+
+// Query / list with filters + pagination
+message ListAlertsRequest {
+  TraceContext trace = 1;
+  string tenant_id = 2;
+
+  // Filters
+  repeated string types = 10;
+  repeated Severity severities = 11;
+  DeliveryStatus state = 12; // optional
+  google.protobuf.Timestamp from = 13;
+  google.protobuf.Timestamp to = 14;
+  string channel = 15; // filter by channel name/ID
+
+  // Pagination
+  int32 page_size = 30;
+  string page_token = 31;
+
+  // Sorting and hints
+  bool sort_desc = 40; // default false (ascending)
+}
+
+message ListAlertsResponse {
+  repeated Alert alerts = 1;
+  string next_page_token = 2;
+  uint64 total_count = 3; // may be approximate for large datasets
+}
+
+// Fetch a single alert by id
+message GetAlertRequest {
+  TraceContext trace = 1;
+  string tenant_id = 2;
+  string alert_id = 3;
+}
+
+message GetAlertResponse {
+  Alert alert = 1;
+  DomainError domain_error = 2;
+}
+
+// Replay alerts: server will stream back replayed processing results (safe replay controls)
+message ReplayAlertsRequest {
+  TraceContext trace = 1;
+  string tenant_id = 2;
+
+  // selection criteria
+  repeated string alert_ids = 10;
+  google.protobuf.Timestamp from = 11;
+  google.protobuf.Timestamp to = 12;
+  repeated Severity severities = 13;
+  // control flags
+  bool dry_run = 20;           // if true, do not actually send notifications
+  bool bypass_rate_limits = 21; // allow temporarily to bypass tenant rate limits (requires permission)
+  int32 concurrency = 22;      // desired concurrency for replay
+}
+
+message ReplayAlertResult {
+  Alert alert = 1;
+  bool enqueued = 2; // whether the alert was accepted for replay processing
+  DomainError domain_error = 3;
+  string message = 4; // human-readable result
+}
+
+// Streaming response of replay results
+message ReplayAlertsResponse {
+  repeated ReplayAlertResult results = 1;
+  // For streaming endpoints we may stream individual ReplayAlertResult messages.
+}
+
+// Acknowledge an alert (used by downstream systems)
+message AcknowledgeAlertRequest {
+  TraceContext trace = 1;
+  string tenant_id = 2;
+  string alert_id = 3;
+  string ack_by = 4; // user or system acknowledging
+  string note = 5; // optional
+}
+
+message AcknowledgeAlertResponse {
+  bool ok = 1;
+  DomainError domain_error = 2;
+}
+
+// Notification dispatch request (ad-hoc)
+message DispatchNotificationRequest {
+  TraceContext trace = 1;
+  string tenant_id = 2;
+  string alert_id = 3;
+  repeated NotifierChannel channels = 10; // channels to attempt (if empty => use routing engine)
+  bool dry_run = 20;
+}
+
+message DispatchNotificationResponse {
+  bool accepted = 1;
+  map<string, DeliveryStatusEntry> per_channel = 2;
+  DomainError domain_error = 3;
+}
+
+// Health and admin operations
+message HealthCheckRequest {
+  TraceContext trace = 1;
+}
+
+message HealthCheckResponse {
+  bool healthy = 1;
+  string message = 2;
+  map<string, string> details = 3;
+}
+
+// Domain-level structured error for gRPC payloads
+message DomainError {
+  DomainErrorCode code = 1;
+  string message = 2;
+  // Optional structured metadata to help automated remediation
+  map<string, string> metadata = 10;
+}
+
+// -----------------------------------------------------------------------------
+// Services
+// -----------------------------------------------------------------------------
+service AlertingService {
+  // Ingest a single alert (unary)
+  rpc CreateAlert(CreateAlertRequest) returns (CreateAlertResponse) {
+    option (google.api.http) = {
+      post: "/v1/alerts"
+      body: "alert"
+    };
+  }
+
+  // Get a single alert by id (unary)
+  rpc GetAlert(GetAlertRequest) returns (GetAlertResponse);
+
+  // List alerts with filters supporting pagination (unary)
+  rpc ListAlerts(ListAlertsRequest) returns (ListAlertsResponse);
+
+  // Server streaming: stream alerts matching a filter (useful for backfill, replay or migrations)
+  rpc StreamAlerts(ListAlertsRequest) returns (stream Alert);
+
+  // Replay alerts: server streams per-alert results while replaying.
+  // Use dry_run=true to simulate.
+  rpc ReplayAlerts(ReplayAlertsRequest) returns (stream ReplayAlertResult);
+
+  // Dispatch notification ad-hoc for an alert (unary)
+  rpc DispatchNotification(DispatchNotificationRequest) returns (DispatchNotificationResponse);
+
+  // Acknowledge an alert
+  rpc AcknowledgeAlert(AcknowledgeAlertRequest) returns (AcknowledgeAlertResponse);
+
+  // Healthcheck endpoint
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+
+  // Bidirectional streaming example: client -> server sends control commands, server streams events.
+  // Useful for long-lived replay sessions or interactive control.
+  rpc ControlSession(stream ControlCommand) returns (stream ControlEvent);
+}
+
+// Control messages for interactive sessions
+message ControlCommand {
+  TraceContext trace = 1;
+  oneof command {
+    ReplayAlertsRequest replay_request = 10;
+    DispatchNotificationRequest dispatch_request = 11;
+    // future control commands...
+  }
+}
+
+message ControlEvent {
+  oneof event {
+    ReplayAlertResult replay_result = 10;
+    DispatchNotificationResponse dispatch_result = 11;
+    HealthCheckResponse health = 12;
+    DomainError error = 20;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Notes & Best Practices
+// -----------------------------------------------------------------------------
+/*
+ - Authentication & authorization should be enforced at transport level (gRPC metadata)
+   and by validating tenant_id + token on each request.
+ - Use correlation_id / trace fields to attach logs/traces across services.
+ - For large replays or backfills, prefer StreamAlerts + client-side consumption to avoid
+   timeouts on unary RPCs.
+ - To evolve the API:
+    * Add new optional fields with new tag numbers.
+    * Avoid renaming or reusing field numbers.
+    * Reserve ranges if planning big changes.
+*/
