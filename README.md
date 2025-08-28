@@ -88,8 +88,7 @@ flowchart TD
     C --> E[📦 Kafka / Bus de eventos]
     D -->|Slack/Email/PagerDuty| F[👥 Equipos de respuesta]
     E --> G[(📊 Almacenamiento/Auditoría)]
-
-
+```
 ---
 
 ## 🎯 Rol principal
