@@ -1,0 +1,25 @@
+---
+
+No License / Todos los derechos reservados (All rights reserved)
+
+Copyright (c) [2025] Elías Higuera Acosta
+
+Natural de Colombia
+
+Microservicio: alerting-service
+Descripción:
+El microservicio `alerting-service` es parte del dominio **Monitoring & Billing* del ecosistema `WorkSphere`. Su función es recibir eventos de monitoreo, analizarlos, clasificarlos, generar alertas y despachar notificaciones multicanal a sistemas externos o administradores del tenant.
+
+Aviso legal:
+Todos los derechos están reservados. Ninguna parte de este software
+puede ser reproducida, distribuida, modificada, publicada, transmitida,
+o utilizada de cualquier forma sin el permiso previo y por escrito
+del titular de los derechos, Elías Higuera Acosta.
+
+Queda estrictamente prohibido el uso, copia, modificación o distribución
+sin autorización explícita del propietario.
+
+Este archivo de licencia no concede ningún derecho de uso, reproducción,
+modificación, distribución o explotación del software.
+
+---

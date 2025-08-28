@@ -1,168 +1,99 @@
-# 🛎️ Alerting Service
+# 📡 Alerting Service
 
-El microservicio `alerting-service` es parte del dominio **Monitoring & Billing** del ecosistema `WorkSphere`. Su función es recibir eventos de monitoreo, analizarlos, clasificarlos, generar alertas y despachar notificaciones multicanal a sistemas externos o administradores del tenant.
+## 🎯 Rol principal
 
-Este servicio es **asíncrono, concurrente, altamente modular y multicanal**, construido con **Rust**, el runtime **Tokio** y comunica mediante **gRPC**, **Kafka**, **HTTP REST** y **Webhooks**.
-
----
-
-## 📌 Características
-
-- ✅ Recepción de eventos desde Kafka, gRPC, Webhook y HTTP.
-- ✅ Detección de duplicados y validación de eventos.
-- ✅ Clasificación e insights automáticos sobre alertas.
-- ✅ Enrutamiento dinámico a notifiers por tenant, tipo de alerta o prioridad.
-- ✅ Notificaciones por correo, Telegram u otros plugins.
-- ✅ Persistencia y auditoría de alertas.
-- ✅ Sistema de purgado y replay.
-- ✅ Carga dinámica de plugins de notificación.
-- ✅ TLS, mTLS y JWT para seguridad.
+El microservicio **alerting-service** es el núcleo del sistema de **monitoreo y gestión de alertas multitenant**.  
+Su objetivo es **detectar, procesar y notificar alertas críticas** de múltiples fuentes en tiempo real, garantizando **seguridad, auditabilidad y alta disponibilidad**.  
 
 ---
 
-## 📂 Estructura del Proyecto
+## ⚙️ Cómo funciona
 
-```bash
-alerting-service/
-├── api/                        # Definición de contratos gRPC
-│   └── proto/
-│       └── alerting.proto
+### 🔔 Ingesta y procesamiento de alertas
+- APIs **gRPC/REST** definidas en `api/proto/alerting.proto`.  
+- Procesamiento mediante motor de correlación y normalización.  
+- Soporte para alertas **unitarias y streaming**.  
 
-├── adapter/                   # Adaptadores de entrada/salida
-│   ├── http/                  # HTTP REST
-│   │   ├── controller.rs
-│   │   ├── routes.rs
-│   │   └── middleware.rs
-│   ├── kafka/                 # Kafka I/O
-│   │   ├── kafka_consumer.rs
-│   │   └── kafka_producer.rs
-│   ├── grpc/                  # Servidor gRPC
-│   │   └── grpc_server.rs
-│   └── webhook/               # Webhooks externos
-│       └── webhook_handler.rs
+### 🧹 Filtros y políticas
+- Configuración por **tenant, severidad, estado o timestamp**.  
+- Políticas de deduplicación y correlación de eventos.  
 
-├── config/                    # Configuración dinámica
-│   ├── app_config.rs
-│   ├── kafka_config.rs
-│   ├── smtp_config.rs
-│   ├── tls_config.rs
-│   └── notifier_plugins.rs
+### ⏪ Replay y simulación
+- `replay_alerts.sh`: reenvío de alertas históricas para auditoría o pruebas.  
+- `simulate_alert.sh`: generación de alertas sintéticas para validación en CI/CD.  
 
-├── notifier/                  # Canales de notificación
-│   ├── email_notifier.rs
-│   └── telegram_notifier.rs
+### 📤 Notificaciones y destinos
+- Integración con **Kafka** y buses de eventos.  
+- Notificación a **email, Slack, PagerDuty** u otros.  
+- Registro de entregas con **idempotencia y trazabilidad**.  
 
-├── service/                   # Lógica de dominio
-│   ├── event_deduplicator.rs
-│   ├── alert_classifier.rs
-│   ├── routing_engine.rs
-│   ├── notification_dispatcher.rs
-│   ├── plugin_loader.rs
-│   └── audit_logger.rs
+### 🔒 Seguridad y trazabilidad
+- Metadatos con **tenant-id, correlation-id y credenciales JWT/mTLS**.  
+- Auditoría de cada alerta procesada y notificada.  
 
-├── usecase/                   # Casos de uso (aplicación)
-│   ├── receive_and_validate_event.rs
-│   ├── classify_alert.rs
-│   ├── dispatch_notification.rs
-│   ├── update_notifier_plugins.rs
-│   ├── generate_alert_insights.rs
-│   └── purge_old_alerts.rs
+### ⚡ Escalabilidad y resiliencia
+- Construido sobre **Tokio** para concurrencia eficiente.  
+- Workers distribuidos para alta carga.  
+- Configuración flexible: `config/config.yaml`.  
 
-├── scripts/                   # Utilidades para test y administración
-│   ├── simulate_alert.sh
-│   └── replay_alerts.sh
+---
 
-├── Cargo.toml
-├── main.rs
-└── README.md
-🚀 Cómo Ejecutarlo
-📦 Requisitos
-Rust 1.77+
+## 🔄 Evolución futura
 
-Cargo
+- 🤖 **Machine learning**: detección de anomalías y correlación inteligente.  
+- 📊 **UI de monitoreo**: panel visual en tiempo real.  
+- ⏯️ **Replay avanzado**: flujos completos de alertas.  
+- 📈 **Integración con métricas**: Prometheus / OpenTelemetry.  
+- 🛠️ **Self-healing**: disparo automático de acciones correctivas.  
 
-Kafka corriendo (si se usa Kafka)
+---
 
-Postfix/SMTP configurado (si se usa email)
+## 📂 Casos de uso principales
 
-Telegram bot API key (si se usa Telegram)
+### 1️⃣ Ingesta y normalización
+- `receive_alert`: recibir y validar alertas entrantes.  
+- `normalize_alert`: estandarizar formato y severidad.  
 
-🧪 Ejecutar en modo desarrollo
-bash
-Copiar
-Editar
-cargo run
-🛠️ Variables de entorno requeridas
-env
-Copiar
-Editar
-APP_ENV=development
-KAFKA_BROKER=localhost:9092
-SMTP_HOST=smtp.gmail.com
-SMTP_USER=example@gmail.com
-SMTP_PASS=secret
-TELEGRAM_BOT_TOKEN=abc123:token
-PLUGIN_PATH=/etc/alerting/plugins/
-🧠 Principios Técnicos
-Componente	Detalles Técnicos
-Tokio	Runtime para concurrencia asíncrona y gestión de tareas.
-gRPC	Interfaz para recepción de eventos o replay manual.
-Kafka	Broker principal de eventos entrantes desde microservicios de monitoreo.
-HTTP + Webhook	Interfaces expuestas para control y consumo de alertas.
-Plugins dinámicos	Los notifiers pueden cargarse como dinámicos desde notifier_plugins.rs.
-Seguridad	Soporte para TLS, mTLS y JWT en todos los endpoints.
+### 2️⃣ Filtros y correlación
+- `filter_alerts`: aplicar criterios por tenant o criticidad.  
+- `deduplicate_alerts`: evitar notificaciones redundantes.  
+- `correlate_alerts`: agrupar alertas relacionadas.  
 
-📘 Ejemplos de Casos de Uso
-Recibir y validar evento
+### 3️⃣ Replay y simulación
+- `replay_alerts`: reinyectar alertas históricas.  
+- `simulate_alert`: generar alertas sintéticas.  
 
-Verifica autenticidad (JWT/mTLS).
+### 4️⃣ Notificación y entrega
+- `emit_alert_event`: emitir evento hacia Kafka/RabbitMQ.  
+- `notify_external_system`: integrar con email, Slack, PagerDuty.  
+- `log_delivery`: registrar historial de notificaciones.  
 
-Rechaza duplicados.
+### 5️⃣ Monitoreo y auditoría
+- `audit_alerts`: registrar todas las operaciones.  
+- `export_alert_logs`: generar reportes de incidentes.  
 
-Guarda en log de auditoría.
+### 6️⃣ Seguridad y acceso
+- `secure_api_endpoints`: proteger endpoints con JWT/mTLS.  
+- `authorize_tenant_access`: validar permisos por tenant.  
 
-Clasificar alerta
+---
 
-Reglas heurísticas y de ML básicas.
+## 🗂️ Arquitectura (Mermaid)
 
-Determina prioridad y tipo.
+```mermaid
+flowchart TD
+    A[🔔 Fuente de alertas] -->|gRPC/REST| B[📡 Alerting Service]
+    B --> C[🧹 Motor de filtros y correlación]
+    C --> D[📤 Notificaciones externas]
+    C --> E[📦 Kafka / Bus de eventos]
+    D -->|Slack/Email/PagerDuty| F[👥 Equipos de respuesta]
+    E --> G[(📊 Almacenamiento/Auditoría)]
 
-Despachar notificación
 
-Determina canal.
+---
 
-Envía por email o Telegram.
+## 🎯 Rol principal
 
-Registra resultado.
-
-📤 Envío de una Alerta de Prueba
-bash
-Copiar
-Editar
-curl -X POST http://localhost:8080/api/alerts \
-  -H "Authorization: Bearer <JWT>" \
-  -d '{"tenant_id": "tenant123", "event_type": "cpu.overload", "severity": "high"}'
-📦 Simular y Rejugar Alertas
-bash
-Copiar
-Editar
-# Simular
-./scripts/simulate_alert.sh
-
-# Replay desde archivo o base de datos
-./scripts/replay_alerts.sh
-🛡️ Seguridad
-JWT con firma HS256 para autenticación.
-
-Mutual TLS (cliente y servidor) opcional.
-
-Rate limiting por IP/tenant en middleware HTTP.
-
-📄 Licencia
-MIT License © 2025 — WorkSphere Platform
-
-yaml
-Copiar
-Editar
-
+El alerting-service es el **cerebro de monitoreo y notificaciones**.  
+Centraliza la ingesta de alertas, las filtra, correlaciona y reenvía de forma **segura, auditable y escalable** garantizando que los equipos reciban la información crítica a tiempo. 
 ---
